@@ -10,13 +10,28 @@
 //   mkdir -p out && MAKEFUN_BOT_DIR=. MAKEFUN_OUTPUT_DIR=out node main.ts
 // On success it copies POST.json to out/POST.json and prints nothing.
 
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const botDir = process.env.MAKEFUN_BOT_DIR ?? '/bot';
 const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
 mkdirSync(outputDir, { recursive: true });
+
+// The gate reads POST.json from the output directory, so refuse to hand it
+// a file that is not a JSON object naming an X post's address: a bad
+// POST.json would fail the gate as invalid instead of being judged.
+let post: { url?: unknown };
+try {
+  post = JSON.parse(readFileSync(join(botDir, 'POST.json'), 'utf-8')) as { url?: unknown };
+} catch (error) {
+  console.error(`POST.json is not valid JSON: ${(error as Error).message}`);
+  process.exit(1);
+}
+if (typeof post !== 'object' || post === null || typeof post.url !== 'string') {
+  console.error('POST.json must be a JSON object with a string "url"');
+  process.exit(1);
+}
 
 try {
   copyFileSync(join(botDir, 'POST.json'), join(outputDir, 'POST.json'));
